@@ -1,0 +1,67 @@
+###データの読み込み
+sze_row=read.csv("2018sze.csv",header = T)
+sze=sze_row[,-11]
+
+#1992年～2017年までを学習用、2018年分をテスト用とする
+train=c(1:1302)
+test=c(1303:1351)
+
+#2017年でテストする場合
+#train=c(1:1254)
+#test=c(1255:1302)
+
+###seedはサザエさん(3383)とする
+set.seed(3383)
+
+###decision tree with Penalty Matrix
+library(rpart)
+library(partykit)
+oss_matr = matrix(c(0,2,1,1,0,2,2,1,0), nrow = 3, byrow = TRUE)
+print(loss_matr2)
+result<-rpart(X~., data = sze[train,],cp=0.01,parms = list(loss = loss_matr))
+
+dt=predict(result,sze[test,],type = "class")
+dt.tab=table(sze[test,1],dt)
+dt.tab
+sum(dt.tab[row(dt.tab)==col(dt.tab)])/sum(dt.tab) #識別率
+
+#Plot result
+plot(as.party(result))
+printcp(result)
+plotcp(result)
+
+###randomforest with Penalty Matrix1
+library(randomForest)
+PenaltyMatrix <- matrix(c(0,2,1,1,0,2,2,1,0), byrow = TRUE, nrow = 3)
+sze.rf=randomForest(sze[train,-1],sze[train,1],mtry=2,parms = list(loss = PenaltyMatrix), importance=T, proximity=T)
+#予測
+test.rf = predict(sze.rf, sze[test,-1])
+rf.tab=table(sze[test,1],test.rf)
+rf.tab
+sum(rf.tab[row(rf.tab)==col(rf.tab)])/sum(rf.tab) #識別率
+
+#重要度の表示
+varImpPlot(sze.rf)
+sze.rf$importance
+
+###randomforest with Penalty Matrix2
+library(RRF)
+PenaltyMatrix <- matrix(c(0,2,1,1,0,2,2,1,0), byrow = TRUE, nrow = 3)
+sze.rf=randomForest(sze[train,-1],sze[train,1],mtry=2,parms = list(loss = PenaltyMatrix), importance=T, proximity=T)
+#予測
+test.rf = predict(sze.rf, sze[test,-1])
+rf.tab=table(sze[test,1],test.rf)
+rf.tab
+sum(rf.tab[row(rf.tab)==col(rf.tab)])/sum(rf.tab) #識別率
+
+##決定境界の要約
+library(RRF)
+library(inTrees)
+tree=RF2List(sze.rf)
+exec=extractRules(tree,sze[train,-1],ntree=500)#抽出
+rule=getRuleMetric(exec,sze[train,-1],sze[train,1])#集計
+rule=pruneRule(rule,sze[train,-1],sze[train,1])#削除
+rule=selectRuleRRF(rule,sze[train,-1],sze[train,1])#集約
+learner=buildLearner(rule,sze[train,-1],sze[train,1],minFreq=0.01)#
+readableRules=presentRules(learner,colnames(sze[train,-1]))# 
+readableRules
