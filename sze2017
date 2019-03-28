@@ -1,0 +1,72 @@
+###データの読み込み
+sze_row=read.csv("2017sze.csv",header = T)
+sze=sze_row[,-9]
+#1992年～2016年までを学習用、2017年分をテスト用とする
+train=c(1:1254)
+test=c(1255:1302)
+
+###seedはサザエさん(3383)とする
+set.seed(3383)
+
+###線形SVM
+library(e1071)
+sze.svm=svm(X~.,sze[train,],method = "C-classification",
+           kernel = "linear",
+           cost = 2.5 )
+test.svm=predict(sze.svm, sze[test,])
+svm.tab=table(sze[test,1],test.svm)
+svm.tab
+sum(svm.tab[row(svm.tab)==col(svm.tab)])/sum(svm.tab) #識別率
+
+###RBFカーネルを用いたSVM
+#パラメータチューニング
+library(e1071)
+gammaRange = 10^(0:3)
+costRange = 10^(0:3)
+t <- tune.svm(X~.,data=sze, gamma=gammaRange, cost=costRange,
+              tunecontrol = tune.control(sampling="cross", cross=4))
+cat("- best parameters:\n")
+cat("gamma =", t$best.parameters$gamma, "; cost =", t$best.parameters$cost, ";\n")
+cat("accuracy:", 100 - t$best.performance * 100, "%\n\n")
+plot(t, transform.x=log10, transform.y=log10,zlim=c(0,1))
+#予測
+leaf.rbf_svm=svm(X~.,sze[train,],method = "C-classification",
+           kernel = "radial",
+           cost = 1,gamma=1 )
+test.rbf_svm=predict(leaf.rbf_svm, sze[test,])
+rbf_svm.tab=table(sze[test,1],test.rbf_svm)
+rbf_svm.tab
+sum(rbf_svm.tab[row(rbf_svm.tab)==col(rbf_svm.tab)])/sum(rbf_svm.tab) #識別率
+
+###randomforest
+library(randomForest)
+#パラメータチューニング
+tuneRF(sze[train,-1],sze[train,1],doBest=T)
+sze.rf=randomForest(sze[train,-1],sze[train,1],mtry=1)
+#予測
+test.rf = predict(sze.rf, sze[test,-1])
+rf.tab=table(sze[test,1],test.rf)
+rf.tab
+sum(rf.tab[row(rf.tab)==col(rf.tab)])/sum(rf.tab) #識別率
+
+###decision tree
+library(rpart)
+library(partykit)
+#Making decision tree
+result<-rpart(X~., data = sze[train,],cp=0.01)
+dt=predict(result,sze[test,],type = "class")
+dt.tab=table(sze[test,1],dt)
+dt.tab
+sum(dt.tab[row(dt.tab)==col(dt.tab)])/sum(dt.tab) #識別率
+#Plot result
+plot(as.party(result))
+printcp(result)
+plotcp(result)
+
+###naive bayes
+library(e1071)
+sze.nb=naiveBayes(X~.,sze[train,])
+test.nb=predict(sze.nb,sze[test,])
+nb.tab=table(sze[test,1],test.nb)
+nb.tab
+sum(nb.tab[row(nb.tab)==col(nb.tab)])/sum(nb.tab) #識別率
